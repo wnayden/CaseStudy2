@@ -1,0 +1,266 @@
+---
+title: "Case Study 2"
+author: "Billy"
+date: "11/29/2019"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+```{r}
+#Load Packages#
+library(dplyr)
+library(ggplot2)
+
+#Load Data#
+CS2 = read.csv("CaseStudy2-data.csv")
+
+#Summarize Data#
+table(CS2$Attrition)
+```
+
+```{r}
+#Summary plots#
+CS2 = read.csv("CaseStudy2-data.csv")
+
+bp<- ggplot(CS2, aes(x="", y=Attrition, fill=Attrition))+
+geom_bar(width = 1, stat = "identity")
+bp
+pie <- bp + coord_polar("y", start=0)
+pie
+ggplot(data = CS2, mapping= aes(x=Attrition,y=Age,fill=Attrition))+geom_boxplot()
+ggplot(data = CS2, mapping= aes(x=Gender, fill=Attrition))+geom_bar(position = "fill")
+ggplot(data = CS2, mapping= aes(x=Department, fill=Attrition))+geom_bar(position = "fill")
+ggplot(data = CS2, mapping= aes(x=MaritalStatus, fill=Attrition))+geom_bar(position = "fill")
+
+```
+
+```{r}
+#Transform Data#
+#Convert factors to numeric#
+CS2$BusinessTravel = as.integer(CS2$BusinessTravel)
+CS2$Department = as.integer(CS2$Department)
+CS2$EducationField = as.integer(CS2$EducationField)
+CS2$Gender = as.integer(CS2$Gender)
+CS2$JobRole = as.integer(CS2$JobRole)
+CS2$MaritalStatus = as.integer(CS2$MaritalStatus)
+CS2$OverTime = as.integer(CS2$OverTime)
+```
+
+```{r}
+#Normalize Data#
+normalize <- function(x) {
+    y <- (x - min(x))/(max(x) - min(x))
+    y
+}
+
+#Apply to all Columns#
+CS2_n_L <- lapply(CS2[, 3:33], normalize)
+CS2_n <- data.frame(CS2_n_L)
+CS2_n[1:3, 1:4]
+
+#Add labels to rows#
+rownames(CS2_n) <- CS2$ID
+CS2_n[1:5,1:3]
+
+CS2_class <- CS2[, 2]
+names(CS2_class) <- CS2$id
+CS2_class[1:3]
+```
+
+```{r}
+#Create training and test sets#
+
+#Split Data#
+nrow(CS2)
+rand_permute <- sample(x = 1:870, size = 870)
+rand_permute[1:5]
+
+save(rand_permute, file='rand_permute.RData')
+load("rand_permute.RData")
+
+all_id_random <- CS2[rand_permute, "ID"]
+
+validate_id <- (all_id_random[1:261])
+training_id <- (all_id_random[262:870])
+
+#Subset Data#
+CS2_train <- CS2_n[training_id, ]
+CS2_val <- CS2_n[validate_id, ]
+CS2_class_train <- CS2_class[training_id]
+CS2_class_val <- CS2_class[validate_id]
+
+table(CS2_class_train)
+table(CS2_class_val)
+```
+
+```{r}
+#Execute KNN#
+
+#Load Packages#
+library(class)
+`?`(knn)
+
+#Determine Initial K#
+sqrt(nrow(CS2_train))
+k <- 25
+
+knn_predict <- knn(CS2_train, CS2_val, CS2_class_train, k = 25)
+knn_predict[1:3]
+
+#Check Agreement#
+table(knn_predict, CS2_class_val)
+prop.table(table(knn_predict, CS2_class_val))
+```
+
+```{r}
+#Test different K values#
+knn_predict_3 <- knn(CS2_train, CS2_val, CS2_class_train, k = 3)
+knn_predict_7 <- knn(CS2_train, CS2_val, CS2_class_train, k = 7)
+knn_predict_11 <- knn(CS2_train, CS2_val, CS2_class_train, k = 11)
+knn_predict_31 <- knn(CS2_train, CS2_val, CS2_class_train, k = 31)
+
+#KNN Tables#
+table(knn_predict_3, CS2_class_val)
+table(knn_predict_7, CS2_class_val) #Optimal#
+table(knn_predict_11, CS2_class_val)
+table(knn_predict_31, CS2_class_val)
+```
+
+```{r}
+#Significane of Variables#
+
+names(CS2_train)
+
+#Build Model#
+lm_1 <- lm(Age ~ CS2_class_train, data = CS2_train)
+summary(lm_1)
+
+#Significance Measure#
+names(summary(lm_1))
+summary(lm_1)$fstatistic
+summary(lm_1)$fstatistic[1]
+
+#Vector to hold outputs#
+exp_var_fstat <- as.numeric(rep(NA, times = 31))
+names(exp_var_fstat) <- names(CS2_train)
+
+exp_var_fstat["Age"] <- summary(lm(Age ~ CS2_class_train, data = CS2_train))$fstatistic[1]
+exp_var_fstat["BusinessTravel"] <- summary(lm(BusinessTravel ~ CS2_class_train, data = CS2_train))$fstatistic[1]
+exp_var_fstat["DailyRate"] <- summary(lm(DailyRate ~ CS2_class_train, data = CS2_train))$fstatistic[1]
+exp_var_fstat["Department"] <- summary(lm(Department ~ CS2_class_train, data = CS2_train))$fstatistic[1]
+exp_var_fstat["DistanceFromHome"] <- summary(lm(DistanceFromHome ~ CS2_class_train, data = CS2_train))$fstatistic[1]
+exp_var_fstat["Education"] <- summary(lm(Education ~ CS2_class_train, data = CS2_train))$fstatistic[1]
+exp_var_fstat["EducationField"] <- summary(lm(EducationField ~ CS2_class_train, data = CS2_train))$fstatistic[1]
+exp_var_fstat["EmployeeNumber"] <- summary(lm(EmployeeNumber ~ CS2_class_train, data = CS2_train))$fstatistic[1]
+exp_var_fstat["EnvironmentSatisfaction"] <- summary(lm(EnvironmentSatisfaction ~ CS2_class_train, data = CS2_train))$fstatistic[1]
+exp_var_fstat["Gender"] <- summary(lm(Gender ~ CS2_class_train, data = CS2_train))$fstatistic[1]
+exp_var_fstat["HourlyRate"] <- summary(lm(HourlyRate ~ CS2_class_train, data = CS2_train))$fstatistic[1]
+exp_var_fstat["JobInvolvement"] <- summary(lm(JobInvolvement ~ CS2_class_train, data = CS2_train))$fstatistic[1]
+exp_var_fstat["JobLevel"] <- summary(lm(JobLevel ~ CS2_class_train, data = CS2_train))$fstatistic[1]
+exp_var_fstat["JobRole"] <- summary(lm(JobRole ~ CS2_class_train, data = CS2_train))$fstatistic[1]
+exp_var_fstat["JobSatisfaction"] <- summary(lm(JobSatisfaction ~ CS2_class_train, data = CS2_train))$fstatistic[1]
+exp_var_fstat["MaritalStatus"] <- summary(lm(MaritalStatus ~ CS2_class_train, data = CS2_train))$fstatistic[1]
+exp_var_fstat["MonthlyIncome"] <- summary(lm(MonthlyIncome ~ CS2_class_train, data = CS2_train))$fstatistic[1]
+exp_var_fstat["MonthlyRate"] <- summary(lm(MonthlyRate ~ CS2_class_train, data = CS2_train))$fstatistic[1]
+exp_var_fstat["NumCompaniesWorked"] <- summary(lm(NumCompaniesWorked ~ CS2_class_train, data = CS2_train))$fstatistic[1]
+exp_var_fstat["OverTime"] <- summary(lm(OverTime ~ CS2_class_train, data = CS2_train))$fstatistic[1]
+exp_var_fstat["PercentSalaryHike"] <- summary(lm(PercentSalaryHike ~ CS2_class_train, data = CS2_train))$fstatistic[1]
+exp_var_fstat["PerformanceRating"] <- summary(lm(PerformanceRating ~ CS2_class_train, data = CS2_train))$fstatistic[1]
+exp_var_fstat["RelationshipSatisfaction"] <- summary(lm(RelationshipSatisfaction ~ CS2_class_train, data = CS2_train))$fstatistic[1]
+exp_var_fstat["StockOptionLevel"] <- summary(lm(StockOptionLevel ~ CS2_class_train, data = CS2_train))$fstatistic[1]
+exp_var_fstat["TotalWorkingYears"] <- summary(lm(TotalWorkingYears ~ CS2_class_train, data = CS2_train))$fstatistic[1]
+exp_var_fstat["TrainingTimesLastYear"] <- summary(lm(TrainingTimesLastYear ~ CS2_class_train, data = CS2_train))$fstatistic[1]
+exp_var_fstat["WorkLifeBalance"] <- summary(lm(WorkLifeBalance ~ CS2_class_train, data = CS2_train))$fstatistic[1]
+exp_var_fstat["YearsAtCompany"] <- summary(lm(YearsAtCompany ~ CS2_class_train, data = CS2_train))$fstatistic[1]
+exp_var_fstat["YearsInCurrentRole"] <- summary(lm(YearsInCurrentRole ~ CS2_class_train, data = CS2_train))$fstatistic[1]
+exp_var_fstat["YearsSinceLastPromotion"] <- summary(lm(YearsSinceLastPromotion ~ CS2_class_train, data = CS2_train))$fstatistic[1]
+exp_var_fstat["YearsWithCurrManager"] <- summary(lm(YearsWithCurrManager ~ CS2_class_train, data = CS2_train))$fstatistic[1]
+exp_var_fstat
+
+#Looping over variables#
+exp_vars <- names(CS2_train)
+exp_var_fstat <- as.numeric(rep(NA, times = 31))
+names(exp_var_fstat) <- exp_vars
+
+for (j in 1:length(exp_vars)) {
+    exp_var_fstat[exp_vars[j]] <- summary(lm(as.formula(paste(exp_vars[j], " ~ CS2_class_train")), 
+        data = CS2_train))$fstatistic[1]
+}
+exp_var_fstat
+
+#Using lapply#
+exp_var_fstat2 <- sapply(exp_vars, function(x) {
+    summary(lm(as.formula(paste(x, " ~ CS2_class_train")), data = CS2_train))$fstatistic[1]
+})
+names(exp_var_fstat2) <- exp_vars
+exp_var_fstat2
+
+#plyr version of fit#
+CS2_df_L <- lapply(exp_vars, function(x) {
+    df <- data.frame(sample = rownames(CS2_train), variable = x, value = CS2_train[, 
+        x], class = CS2_class_train)
+    df
+})
+head(CS2_df_L[[1]])
+head(CS2_df_L[[5]])
+
+names(CS2_df_L) <- exp_vars
+
+library(plyr)
+var_sig_fstats <- laply(CS2_df_L, function(df) {
+    fit <- lm(value ~ class, data = df)
+    f <- summary(fit)$fstatistic[1]
+    f
+})
+names(var_sig_fstats) <- names(CS2_df_L)
+var_sig_fstats[1:3]
+
+#Conclusions#
+most_sig_stats <- sort(var_sig_fstats, decreasing = T)
+most_sig_stats[1:3]
+most_sig_stats[29:31]
+CS2_train_ord <- CS2_train[, names(most_sig_stats)]
+```
+
+```{r}
+length(training_id)
+.7*length(training_id)
+length(training_id) - 426
+
+#Use 426 as training set size#
+training_family_L <- lapply(1:1000, function(j) {
+    perm <- sample(1:609, size = 609, replace = F)
+    shuffle <- training_id[perm]
+    trn <- shuffle[1:426]
+    trn
+})
+
+validation_family_L <- lapply(training_family_L, function(x) setdiff(training_id, 
+    x))
+```
+
+```{r}
+#Finding Optimal Set of Variables and K#
+N <- seq(from = 3, to = 29, by = 2)
+sqrt(length(training_family_L[[1]]))
+K <- seq(from = 3, to = 23, by = 2)
+1000 * length(N) * length(K)
+
+#Choose 21 for K#
+```
+
+```{r}
+CS2_val_ord <- CS2_val[, names(CS2_train_ord)]
+
+CS2_val_pred <- knn(train = CS2_train_ord[, 1:27], CS2_val_ord[, 1:27], CS2_class_train, 
+    k = 21)
+
+tbl_CS2_val <- table(CS2_val_pred, CS2_class_val)
+tbl_CS2_val
+
+(val_error <- tbl_CS2_val[1, 2] + tbl_CS2_val[2, 1])/length(CS2_class_val)
+```
